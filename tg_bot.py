@@ -7,7 +7,7 @@ from redis import Redis
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from moltin_api import get_products
+from moltin_api import get_products, get_inventory
 
 import logging
 
@@ -37,15 +37,18 @@ def start(update, context):
 
 def handle_menu(update, context):
     query = update.callback_query
+    inventory = get_inventory(query.data)
+    on_stock = inventory['available']
     for product in context.chat_data['products']:
-        name = product['name']
-        price = product['meta']['display_price']['with_tax']['formatted']
-        description = product['description']
         if product['id'] == query.data:
+            name = product['name']
+            price = product['meta']['display_price']['with_tax']['formatted']
+            description = product['description']
             text = dedent(f'''
                 {name}
 
                 {price}
+                {on_stock} на складе
 
                 {description}'''
             )

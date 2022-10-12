@@ -26,12 +26,45 @@ def get_access_token():
 
 def get_products():
     access_token = get_access_token()
-    products_api_url = 'https://api.moltin.com/v2/products/'
+    url = 'https://api.moltin.com/v2/products/'
     
     headers = {
         'Authorization': f'Bearer {access_token}',
     }
-    response = requests.get(products_api_url, headers=headers)
+    response = requests.get(url, headers=headers)
+    return response.json()['data']
+
+
+def get_product(prod_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/products/{prod_id}'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['data']
+
+
+def get_inventories():
+    access_token = get_access_token()
+    url = 'https://api.moltin.com/v2/inventories/'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['data']
+
+
+def get_inventory(prod_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/inventories/{prod_id}'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
     return response.json()['data']
 
 
@@ -79,17 +112,18 @@ def add_product(prod_id, cart_id, quantity=1):
 
 def main():
     products = get_products()
-    # pprint(products)
+    product = get_product(products[0]['id'])
+    pprint(product)
 
-    cart = get_cart('123')
+    # cart = get_cart('123')
     # pprint(cart)
 
-    adding_prod_id = products[0]['id']
-    adding_status = add_product(adding_prod_id, cart['id'])
-    print(adding_status)
+    # adding_prod_id = products[0]['id']
+    # adding_status = add_product(adding_prod_id, cart['id'])
+    # print(adding_status)
 
-    cart_items = get_cart_items(cart['id'])
-    pprint(cart_items)
+    # cart_items = get_cart_items(cart['id'])
+    # pprint(cart_items)
     
 
 if __name__ == "__main__":
