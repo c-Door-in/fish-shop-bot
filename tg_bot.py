@@ -1,13 +1,14 @@
 from enum import Enum, auto
 from textwrap import dedent
 from time import sleep
+from pprint import pprint
 
 from environs import Env
 from redis import Redis
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from moltin_api import get_products, get_inventory
+from moltin_api import get_products_info
 
 import logging
 
@@ -18,17 +19,19 @@ class States(Enum):
 
 
 def start(update, context):
-    keyboard = []
-    products = get_products()
+    chat_id = update.effective_chat.id
+    products = get_products_info()
     context.chat_data['products'] = products
-    for product in products:
+    keyboard = []
+    for product_id, product in products.items():
         keyboard.append(
             [InlineKeyboardButton(product['name'],
-                                  callback_data=product['id'])]
+                                  callback_data=product_id)]
         )
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(
-        'Привет!',
+    context.bot.send_message(
+        chat_id=chat_id,
+        text='Привет!',
         reply_markup=reply_markup,
     )
 
@@ -36,29 +39,40 @@ def start(update, context):
 
 
 def handle_menu(update, context):
+    chat_id = update.effective_chat.id
     query = update.callback_query
-    inventory = get_inventory(query.data)
-    on_stock = inventory['available']
-    for product in context.chat_data['products']:
-        if product['id'] == query.data:
-            name = product['name']
-            price = product['meta']['display_price']['with_tax']['formatted']
-            description = product['description']
-            text = dedent(f'''
-                {name}
+    product_id = query.data
+    current_product = context.chat_data['products'][product_id]
 
-                {price}
-                {on_stock} на складе
+    main_image_link = current_product['main_image_link']
+    name = current_product['name']
+    prices = '\n'.join(current_product['prices'])
+    description = current_product['description']
+    in_stock = current_product['in_stock']
+    
+    text = dedent(f'''
+        {name}
 
-                {description}'''
-            )
-    update.callback_query.edit_message_text(text)
+        {prices}
+        {in_stock} на складе
+
+        {description}'''
+    )
+
+    message_id = update.callback_query.message.message_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+    context.bot.send_photo(
+        chat_id=chat_id,
+        photo=main_image_link,
+        caption=text,
+    )
 
     return States.HANDLE_MENU
 
 
 def echo(update, context):
-    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     if update.message:
         text = update.message.text
     else:
@@ -112,6 +126,7 @@ def main():
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
+        allow_reentry=True,
     )
 
     while True:

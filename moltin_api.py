@@ -146,10 +146,15 @@ def display_price(price_currencies):
     # TODO includes_tax
     prices = []
     currencies = get_currencies()
+    pprint(currencies)
     for price_currency_code, price_value in price_currencies.items():
         for currency in currencies['data']:
             if currency['code'] == price_currency_code:
-                prices.append(currency['format'].format(price=price_value['amount']))
+                amount = str(price_value['amount'])
+                decimal = currency['decimal_places']
+                decimal_point = currency['decimal_point']
+                price = f'{amount[:-decimal]}{decimal_point}{amount[-decimal:]}'
+                prices.append(currency['format'].format(price=price))
     return prices
 
 
@@ -172,25 +177,44 @@ def get_available_amount(prod_id, inventories):
     return None
 
 
-def main():
+def get_file_link(file_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/files/{file_id}'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['data']['link']['href']
+
+
+def get_products_info():
     products = get_products()
     all_prices = get_all_prices()
     inventories = get_inventories()
-    products_summury = []
+    products_summury = {}
     for product in products['data']:
         id = product['id']
         sku = product['attributes']['sku']
         name = product['attributes']['name']
+        description = product['attributes']['description']
+        main_image_link = get_file_link(product['relationships']['main_image']['data']['id'])
         prices = all_prices[sku]
         in_stock = str(get_available_amount(id, inventories))
 
-        products_summury.append({
-            'product_id': id,
-            'product_sku': sku,
-            'product_name': name,
-            'product_prices': prices,
-            'product_in_stock': in_stock,
-        })
+        products_summury[id] = {
+            'sku': sku,
+            'name': name,
+            'description': description,
+            'main_image_link': main_image_link,
+            'prices': prices,
+            'in_stock': in_stock,
+        }
+    return products_summury
+
+
+def main():
+    products_summury = get_products_info()
     pprint(products_summury)
 
     # cart = get_cart('123')
