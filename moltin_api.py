@@ -26,18 +26,40 @@ def get_access_token():
 
 def get_products():
     access_token = get_access_token()
-    url = 'https://api.moltin.com/v2/products/'
+    url = 'https://api.moltin.com/pcm/products/'
     
     headers = {
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
-    return response.json()['data']
+    return response.json()
+
+
+def get_pricebooks():
+    access_token = get_access_token()
+    url = 'https://api.moltin.com/pcm/pricebooks/'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+def get_book_prices(book_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/pcm/pricebooks/{book_id}/prices'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
 
 
 def get_product(prod_id):
     access_token = get_access_token()
-    url = f'https://api.moltin.com/v2/products/{prod_id}'
+    url = f'https://api.moltin.com/pcm/products/{prod_id}'
     
     headers = {
         'Authorization': f'Bearer {access_token}',
@@ -87,7 +109,6 @@ def get_cart_items(cart_id):
     }
 
     response = requests.get(url, headers=headers)
-    print(response.url)
     return response.json()
 
 
@@ -110,10 +131,67 @@ def add_product(prod_id, cart_id, quantity=1):
     return response.json()
 
 
+def get_currencies():
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/currencies/'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+def display_price(price_currencies):
+    # TODO includes_tax
+    prices = []
+    currencies = get_currencies()
+    for price_currency_code, price_value in price_currencies.items():
+        for currency in currencies['data']:
+            if currency['code'] == price_currency_code:
+                prices.append(currency['format'].format(price=price_value['amount']))
+    return prices
+
+
+def get_all_prices():
+    prices = {}
+    pricebooks = get_pricebooks()
+    for pricebook in pricebooks['data']:
+        book_prices = get_book_prices(pricebook['id'])
+        for product_price_unit in book_prices['data']:
+            product_sku = product_price_unit['attributes']['sku']
+            product_prices = display_price(product_price_unit['attributes']['currencies'])
+            prices[product_sku] = product_prices
+    return prices
+
+
+def get_available_amount(prod_id, inventories):
+    for inventory in inventories:
+        if inventory['id'] == prod_id:
+            return inventory['available']
+    return None
+
+
 def main():
     products = get_products()
-    product = get_product(products[0]['id'])
-    pprint(product)
+    all_prices = get_all_prices()
+    inventories = get_inventories()
+    products_summury = []
+    for product in products['data']:
+        id = product['id']
+        sku = product['attributes']['sku']
+        name = product['attributes']['name']
+        prices = all_prices[sku]
+        in_stock = str(get_available_amount(id, inventories))
+
+        products_summury.append({
+            'product_id': id,
+            'product_sku': sku,
+            'product_name': name,
+            'product_prices': prices,
+            'product_in_stock': in_stock,
+        })
+    pprint(products_summury)
 
     # cart = get_cart('123')
     # pprint(cart)
