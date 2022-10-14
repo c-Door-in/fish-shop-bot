@@ -16,12 +16,38 @@ logger = logging.getLogger(__name__)
 
 class States(Enum):
     HANDLE_MENU = auto()
+    HANDLE_DESCRIPTION = auto()
 
 
 def start(update, context):
     chat_id = update.effective_chat.id
+    if update.callback_query:
+        message_id = update.callback_query.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     products = get_products_info()
     context.chat_data['products'] = products
+    keyboard = []
+    for product_id, product in products.items():
+        keyboard.append(
+            [InlineKeyboardButton(product['name'],
+                                  callback_data=product_id)]
+        )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.send_message(
+        chat_id=chat_id,
+        text='Привет!',
+        reply_markup=reply_markup,
+    )
+
+    return States.HANDLE_MENU
+
+
+def handle_description(update, context):
+    chat_id = update.effective_chat.id
+    if update.callback_query:
+        message_id = update.callback_query.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    products = context.chat_data['products']
     keyboard = []
     for product_id, product in products.items():
         keyboard.append(
@@ -62,13 +88,16 @@ def handle_menu(update, context):
     message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
+    keyboard = [[InlineKeyboardButton('Назад', callback_data='Назад')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_photo(
         chat_id=chat_id,
         photo=main_image_link,
         caption=text,
+        reply_markup=reply_markup,
     )
 
-    return States.HANDLE_MENU
+    return States.HANDLE_DESCRIPTION
 
 
 def echo(update, context):
@@ -122,7 +151,9 @@ def main():
         states={
             States.HANDLE_MENU: [
                 CallbackQueryHandler(handle_menu),
-                MessageHandler(Filters.text, echo),
+            ],
+            States.HANDLE_DESCRIPTION: [
+                CallbackQueryHandler(handle_description, pattern='^Назад$'),
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
