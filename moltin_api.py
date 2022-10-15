@@ -35,6 +35,39 @@ def get_products():
     return response.json()
 
 
+def get_catalogs():
+    access_token = get_access_token()
+    url = 'https://api.moltin.com/pcm/catalogs/'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+def get_catalog(catalog_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/pcm/catalogs/{catalog_id}'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+def publish_catalog(catalog_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/pcm/catalogs/{catalog_id}/releases'
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
 def get_pricebooks():
     access_token = get_access_token()
     url = 'https://api.moltin.com/pcm/pricebooks/'
@@ -92,13 +125,13 @@ def get_inventory(prod_id):
 
 def get_cart(cart_id):
     access_token = get_access_token()
-    url = urljoin('https://api.moltin.com/v2/carts/', cart_id)
+    url = f'https://api.moltin.com/v2/carts/{cart_id}'
     headers = {
         'Authorization': f'Bearer {access_token}',
     }
 
     response = requests.get(url, headers=headers)
-    return response.json()['data']
+    return response.json()
 
 
 def get_cart_items(cart_id):
@@ -112,7 +145,7 @@ def get_cart_items(cart_id):
     return response.json()
 
 
-def add_product(prod_id, cart_id, quantity=1):
+def add_product_to_cart(prod_id, cart_id, quantity=1):
     access_token = get_access_token()
     url = f'https://api.moltin.com/v2/carts/{cart_id}/items/'
     headers = {
@@ -146,7 +179,6 @@ def display_price(price_currencies):
     # TODO includes_tax
     prices = []
     currencies = get_currencies()
-    pprint(currencies)
     for price_currency_code, price_value in price_currencies.items():
         for currency in currencies['data']:
             if currency['code'] == price_currency_code:
@@ -200,7 +232,7 @@ def get_products_info():
         description = product['attributes']['description']
         main_image_link = get_file_link(product['relationships']['main_image']['data']['id'])
         prices = all_prices[sku]
-        in_stock = str(get_available_amount(id, inventories))
+        on_stock = str(get_available_amount(id, inventories))
 
         products_summury[id] = {
             'sku': sku,
@@ -208,24 +240,31 @@ def get_products_info():
             'description': description,
             'main_image_link': main_image_link,
             'prices': prices,
-            'in_stock': in_stock,
+            'on_stock': on_stock,
         }
     return products_summury
 
 
 def main():
-    products_summury = get_products_info()
-    pprint(products_summury)
+    # products_summury = get_products_info()
+    # pprint(products_summury)
 
-    # cart = get_cart('123')
-    # pprint(cart)
+    # catalogs = get_catalogs()
+    # pprint(catalogs)
 
-    # adding_prod_id = products[0]['id']
-    # adding_status = add_product(adding_prod_id, cart['id'])
-    # print(adding_status)
+    # for catalog in catalogs['data']:
+    #     pprint(get_catalog(catalog['id']))
+    #     pprint(publish_catalog(catalog['id']))
 
-    # cart_items = get_cart_items(cart['id'])
-    # pprint(cart_items)
+    cart = get_cart('1235')
+    pprint(cart)
+
+    adding_prod_id = '7ad42816-7d8e-45ed-b3db-be6b419bc7d1'
+    adding_status = add_product_to_cart(adding_prod_id, '12367')
+    pprint(adding_status)
+
+    cart_items = get_cart_items('12367')
+    pprint(cart_items)
     
 
 if __name__ == "__main__":

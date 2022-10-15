@@ -8,7 +8,7 @@ from redis import Redis
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from moltin_api import get_products_info
+from moltin_api import get_products_info, add_product_to_cart
 
 import logging
 
@@ -21,9 +21,12 @@ class States(Enum):
 
 def start(update, context):
     chat_id = update.effective_chat.id
+
     if update.callback_query:
         message_id = update.callback_query.message.message_id
         context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
+    
     products = get_products_info()
     context.chat_data['products'] = products
     keyboard = []
@@ -33,6 +36,7 @@ def start(update, context):
                                   callback_data=product_id)]
         )
     reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
     context.bot.send_message(
         chat_id=chat_id,
         text='Привет!',
@@ -42,7 +46,7 @@ def start(update, context):
     return States.HANDLE_MENU
 
 
-def handle_description(update, context):
+def main_menu(update, context):
     chat_id = update.effective_chat.id
     if update.callback_query:
         message_id = update.callback_query.message.message_id
@@ -57,7 +61,7 @@ def handle_description(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
-        text='Привет!',
+        text='Выбирай мудро!',
         reply_markup=reply_markup,
     )
 
@@ -67,20 +71,21 @@ def handle_description(update, context):
 def handle_menu(update, context):
     chat_id = update.effective_chat.id
     query = update.callback_query
-    product_id = query.data
-    current_product = context.chat_data['products'][product_id]
+    current_product_id = query.data
+    context.chat_data['current_product_id'] = current_product_id
+    current_product = context.chat_data['products'][current_product_id]
 
     main_image_link = current_product['main_image_link']
     name = current_product['name']
     prices = '\n'.join(current_product['prices'])
     description = current_product['description']
-    in_stock = current_product['in_stock']
+    on_stock = current_product['on_stock']
     
     text = dedent(f'''
         {name}
 
         {prices}
-        {in_stock} на складе
+        {on_stock} на складе
 
         {description}'''
     )
@@ -88,7 +93,14 @@ def handle_menu(update, context):
     message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
-    keyboard = [[InlineKeyboardButton('Назад', callback_data='Назад')]]
+    keyboard = [
+        [
+            InlineKeyboardButton('1 шт', callback_data=1),
+            InlineKeyboardButton('5 шт', callback_data=5),
+            InlineKeyboardButton('20 шт', callback_data=20),
+        ],
+        [InlineKeyboardButton('Назад', callback_data='Назад')],
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_photo(
         chat_id=chat_id,
@@ -96,6 +108,21 @@ def handle_menu(update, context):
         caption=text,
         reply_markup=reply_markup,
     )
+
+    return States.HANDLE_DESCRIPTION
+
+
+def handle_quantity(update, context):
+    current_product_id = context.chat_data['current_product_id']
+    cart_id = update.effective_chat.id
+    prod_quantity = int(update.callback_query.data)
+
+    adding_status = add_product_to_cart(
+        prod_id=current_product_id,
+        cart_id=cart_id,
+        quantity=prod_quantity,
+    )
+    pprint(adding_status)
 
     return States.HANDLE_DESCRIPTION
 
@@ -153,7 +180,8 @@ def main():
                 CallbackQueryHandler(handle_menu),
             ],
             States.HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(handle_description, pattern='^Назад$'),
+                CallbackQueryHandler(main_menu, pattern='^Назад$'),
+                CallbackQueryHandler(handle_quantity, pattern='^\d+$'),
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
