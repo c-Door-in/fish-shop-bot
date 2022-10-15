@@ -1,6 +1,5 @@
-import json
 from pprint import pprint
-from urllib.parse import urljoin
+from textwrap import dedent
 
 import requests
 from environs import Env
@@ -21,6 +20,7 @@ def get_access_token():
     }
 
     response = requests.post(auth_api_url, data=payload)
+    response.raise_for_status()
     return response.json()['access_token']
 
 
@@ -32,6 +32,7 @@ def get_products():
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -43,6 +44,7 @@ def get_catalogs():
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -54,6 +56,7 @@ def get_catalog(catalog_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -65,6 +68,7 @@ def publish_catalog(catalog_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -76,6 +80,7 @@ def get_pricebooks():
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -87,6 +92,7 @@ def get_book_prices(book_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -98,6 +104,7 @@ def get_product(prod_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()['data']
 
 
@@ -109,6 +116,7 @@ def get_inventories():
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()['data']
 
 
@@ -120,6 +128,7 @@ def get_inventory(prod_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()['data']
 
 
@@ -131,6 +140,7 @@ def get_cart(cart_id):
     }
 
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -142,7 +152,43 @@ def get_cart_items(cart_id):
     }
 
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
+
+
+def get_cart_summary(cart_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/carts/{cart_id}/items/'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    cart_items = response.json()
+
+    cart_summary = {
+        'cart_items': {},
+        'total': cart_items['meta']['display_price']['with_tax']['formatted'],
+    }
+    for cart_item in cart_items['data']:
+        item_id = cart_item['id']
+        product_id = cart_item['product_id']
+        name = cart_item['name']
+        description = cart_item['description']
+        unit_price = cart_item['meta']['display_price']['with_tax']['unit']['formatted']
+        quantity = cart_item['quantity']
+        value = cart_item['meta']['display_price']['with_tax']['value']['formatted']
+
+        cart_summary['cart_items'][item_id] = {
+            'product_id': product_id,
+            'name': name,
+            'description': description,
+            'unit_price': unit_price,
+            'quantity': quantity,
+            'value': value,
+        }
+    return cart_summary
 
 
 def add_product_to_cart(prod_id, cart_id, quantity=1):
@@ -161,6 +207,19 @@ def add_product_to_cart(prod_id, cart_id, quantity=1):
     }
 
     response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()
+
+
+def remove_cart_item(item_id, cart_id):
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/carts/{cart_id}/items/{item_id}'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    response = requests.delete(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -172,6 +231,7 @@ def get_currencies():
     }
 
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()
 
 
@@ -217,6 +277,7 @@ def get_file_link(file_id):
         'Authorization': f'Bearer {access_token}',
     }
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return response.json()['data']['link']['href']
 
 
@@ -246,25 +307,8 @@ def get_products_info():
 
 
 def main():
-    # products_summury = get_products_info()
-    # pprint(products_summury)
-
-    # catalogs = get_catalogs()
-    # pprint(catalogs)
-
-    # for catalog in catalogs['data']:
-    #     pprint(get_catalog(catalog['id']))
-    #     pprint(publish_catalog(catalog['id']))
-
-    cart = get_cart('1235')
-    pprint(cart)
-
-    adding_prod_id = '7ad42816-7d8e-45ed-b3db-be6b419bc7d1'
-    adding_status = add_product_to_cart(adding_prod_id, '12367')
-    pprint(adding_status)
-
-    cart_items = get_cart_items('12367')
-    pprint(cart_items)
+    products_summury = get_products_info()
+    pprint(products_summury)
     
 
 if __name__ == "__main__":

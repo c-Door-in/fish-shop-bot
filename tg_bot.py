@@ -8,7 +8,7 @@ from redis import Redis
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from moltin_api import get_products_info, add_product_to_cart
+from moltin_api import get_products_info, add_product_to_cart, get_cart_summary, remove_cart_item
 
 import logging
 
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class States(Enum):
     HANDLE_MENU = auto()
     HANDLE_DESCRIPTION = auto()
+    HANDLE_CART = auto()
 
 
 def start(update, context):
@@ -24,7 +25,9 @@ def start(update, context):
 
     if update.callback_query:
         message_id = update.callback_query.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    else:
+        message_id = update.message.message_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
     
     products = get_products_info()
@@ -35,6 +38,7 @@ def start(update, context):
             [InlineKeyboardButton(product['name'],
                                   callback_data=product_id)]
         )
+    keyboard.append([InlineKeyboardButton('Корзина', callback_data='Корзина')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
     context.bot.send_message(
@@ -58,6 +62,7 @@ def main_menu(update, context):
             [InlineKeyboardButton(product['name'],
                                   callback_data=product_id)]
         )
+    keyboard.append([InlineKeyboardButton('Корзина', callback_data='Корзина')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
@@ -99,6 +104,7 @@ def handle_menu(update, context):
             InlineKeyboardButton('5 шт', callback_data=5),
             InlineKeyboardButton('20 шт', callback_data=20),
         ],
+        [InlineKeyboardButton('Корзина', callback_data='Корзина')],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -112,19 +118,60 @@ def handle_menu(update, context):
     return States.HANDLE_DESCRIPTION
 
 
-def handle_quantity(update, context):
+def add_to_cart(update, context):
     current_product_id = context.chat_data['current_product_id']
-    cart_id = update.effective_chat.id
+    chat_id = update.effective_chat.id
     prod_quantity = int(update.callback_query.data)
 
     adding_status = add_product_to_cart(
         prod_id=current_product_id,
-        cart_id=cart_id,
+        cart_id=chat_id,
         quantity=prod_quantity,
     )
-    pprint(adding_status)
 
     return States.HANDLE_DESCRIPTION
+
+
+def handle_cart(update, context):
+    chat_id = update.effective_chat.id
+    message_id = update.callback_query.message.message_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
+    cart_summary = get_cart_summary(chat_id)
+    summary_for_text = []
+    keyboard = []
+    for item_id, product in cart_summary['cart_items'].items():
+        summary_for_text.append(
+            dedent(f'''
+                {product['name']}
+                {product['description']}
+                {product['unit_price']} за шт
+                {product['quantity']} шт в корзине за {product['value']}'''
+            )
+        )
+        keyboard.append(
+            [InlineKeyboardButton(f'Убрать из корзины {product["name"]}',
+                                  callback_data=item_id)]
+        )
+    summary_for_text.append(f'\nВсего: {cart_summary["total"]}')
+    text = '\n'.join(summary_for_text)
+
+    keyboard.append(
+        [InlineKeyboardButton('В меню', callback_data='В меню')],
+    )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
+    context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+
+    return States.HANDLE_CART
+
+
+def remove_from_cart(update, context):
+    chat_id = update.effective_chat.id
+    item_id = update.callback_query.data
+    removing_status = remove_cart_item(item_id, chat_id)
+
+    return handle_cart(update, context)
 
 
 def echo(update, context):
@@ -177,11 +224,17 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             States.HANDLE_MENU: [
+                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
                 CallbackQueryHandler(handle_menu),
             ],
             States.HANDLE_DESCRIPTION: [
                 CallbackQueryHandler(main_menu, pattern='^Назад$'),
-                CallbackQueryHandler(handle_quantity, pattern='^\d+$'),
+                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
+                CallbackQueryHandler(add_to_cart, pattern='^\d+$'),
+            ],
+            States.HANDLE_CART: [
+                CallbackQueryHandler(main_menu, pattern='^В меню$'),
+                CallbackQueryHandler(remove_from_cart),
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
