@@ -18,6 +18,7 @@ class States(Enum):
     HANDLE_MENU = auto()
     HANDLE_DESCRIPTION = auto()
     HANDLE_CART = auto()
+    WAITING_EMAIL = auto()
 
 
 def start(update, context):
@@ -27,6 +28,7 @@ def start(update, context):
         message_id = update.callback_query.message.message_id
     else:
         message_id = update.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
     
@@ -54,7 +56,11 @@ def main_menu(update, context):
     chat_id = update.effective_chat.id
     if update.callback_query:
         message_id = update.callback_query.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    else:
+        message_id = update.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    
     products = context.chat_data['products']
     keyboard = []
     for product_id, product in products.items():
@@ -138,6 +144,7 @@ def handle_cart(update, context):
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
     cart_summary = get_cart_summary(chat_id)
+
     summary_for_text = []
     keyboard = []
     for item_id, product in cart_summary['cart_items'].items():
@@ -155,7 +162,9 @@ def handle_cart(update, context):
         )
     summary_for_text.append(f'\nВсего: {cart_summary["total"]}')
     text = '\n'.join(summary_for_text)
-
+    keyboard.append(
+        [InlineKeyboardButton('Оплатить', callback_data='Оплатить')],
+    )
     keyboard.append(
         [InlineKeyboardButton('В меню', callback_data='В меню')],
     )
@@ -172,6 +181,61 @@ def remove_from_cart(update, context):
     removing_status = remove_cart_item(item_id, chat_id)
 
     return handle_cart(update, context)
+
+
+def waiting_email(update, context):
+    chat_id = update.effective_chat.id
+    if update.callback_query:
+        message_id = update.callback_query.message.message_id
+    else:
+        message_id = update.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.send_message(
+        chat_id=chat_id,
+        text='Введите почту',
+        reply_markup=reply_markup,
+    )
+
+    return States.WAITING_EMAIL
+
+
+def confirm_email(update, context):
+    chat_id = update.effective_chat.id
+    typed_email = update.message.text
+    if update.callback_query:
+        message_id = update.callback_query.message.message_id
+    else:
+        message_id = update.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    text = f'Вы прислали мне эту почту: {typed_email}'
+
+    keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(text=text, reply_markup=reply_markup)
+
+    return States.HANDLE_CART
+
+
+
+def fail_email(update, context):
+    chat_id = update.effective_chat.id
+    if update.callback_query:
+        message_id = update.callback_query.message.message_id
+    else:
+        message_id = update.message.message_id
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    text = f'Проверьте правильность написания.'
+
+    keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(text=text, reply_markup=reply_markup)
+
+    return States.WAITING_EMAIL
 
 
 def echo(update, context):
@@ -233,8 +297,14 @@ def main():
                 CallbackQueryHandler(add_to_cart, pattern='^\d+$'),
             ],
             States.HANDLE_CART: [
+                CallbackQueryHandler(waiting_email, pattern='^Оплатить$'),
                 CallbackQueryHandler(main_menu, pattern='^В меню$'),
                 CallbackQueryHandler(remove_from_cart),
+            ],
+            States.WAITING_EMAIL: [
+                CallbackQueryHandler(main_menu, pattern='^В меню$'),
+                MessageHandler(Filters.regex(r'^\w+@[a-z]+\.[a-z]+$'), confirm_email),
+                MessageHandler(Filters.text, fail_email),
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
