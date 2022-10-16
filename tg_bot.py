@@ -8,7 +8,7 @@ from redis import Redis
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from moltin_api import get_products_info, add_product_to_cart, get_cart_summary, remove_cart_item
+from moltin_api import get_products_info, add_product_to_cart, get_cart_summary, remove_cart_item, get_or_create_customer
 
 import logging
 
@@ -211,10 +211,18 @@ def confirm_email(update, context):
         message_id = update.message.message_id
         context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    text = f'Вы прислали мне эту почту: {typed_email}'
+
+    thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
+
+    user = update.message.from_user
+    customer_id = get_or_create_customer(user['first_name'], typed_email)
+    logger.debug(customer_id)
+    
+    text = f'Вы прислали мне эту почту: {typed_email}\nС вами свяжутся.'
 
     keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
     update.message.reply_text(text=text, reply_markup=reply_markup)
 
     return States.HANDLE_CART
@@ -238,30 +246,8 @@ def fail_email(update, context):
     return States.WAITING_EMAIL
 
 
-def echo(update, context):
-    chat_id = update.effective_chat.id
-    if update.message:
-        text = update.message.text
-    else:
-        query = update.callback_query
-        text = f'Вы задали {query.data}'
-    keyboard = [
-        ['Новый вопрос', 'Сдаться'],
-        ['Мой счёт'],
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    update.callback_query.edit_message_text(text)
-
-    return States.REQUEST
-
-
 def cancel(update, context):
-    username = update.effective_user.first_name
-    logger.info(f'User {username} canceled the conversation.')
-    update.message.reply_text('До встречи!',
-                              reply_markup=ReplyKeyboardRemove())
-
-    return ConversationHandler.END
+    ConversationHandler.END
 
 
 def error(update, error):
@@ -274,15 +260,6 @@ def main():
                     level=logging.INFO)
     env = Env()
     env.read_env()
-    
-    # db_connection = Redis(
-    #     host=env.str('REDIS_HOST'),
-    #     port=env.str('REDIS_PORT'),
-    #     username=env.str('REDIS_USERNAME', default='default'),
-    #     password=env.str('REDIS_PASSWORD'),
-    #     decode_responses=True,
-    # )
-    # logger.info(f'db_connection_ping: {db_connection.ping()}')
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],

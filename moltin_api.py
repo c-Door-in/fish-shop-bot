@@ -306,9 +306,43 @@ def get_products_info():
     return products_summury
 
 
+def get_customers():
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/customers'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_or_create_customer(name, email):
+    customers = get_customers()
+    for customer in customers['data']:
+        if customer['email'] == email:
+            return customer['id']
+    access_token = get_access_token()
+    url = f'https://api.moltin.com/v2/customers'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        'data': {
+            'type': 'customer',
+            'name': name,
+            'email': email,
+        }
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()['data']['id']
+
+
 def main():
-    products_summury = get_products_info()
-    pprint(products_summury)
+    pass
     
 
 if __name__ == "__main__":
