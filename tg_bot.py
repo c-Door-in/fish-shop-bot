@@ -217,7 +217,7 @@ def confirm_email(update, context):
     user = update.message.from_user
     customer_id = get_or_create_customer(user['first_name'], typed_email)
     logger.debug(customer_id)
-    
+
     text = f'Вы прислали мне эту почту: {typed_email}\nС вами свяжутся.'
 
     keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
@@ -226,7 +226,6 @@ def confirm_email(update, context):
     update.message.reply_text(text=text, reply_markup=reply_markup)
 
     return States.HANDLE_CART
-
 
 
 def fail_email(update, context):

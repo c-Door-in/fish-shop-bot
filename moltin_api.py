@@ -36,42 +36,6 @@ def get_products():
     return response.json()
 
 
-def get_catalogs():
-    access_token = get_access_token()
-    url = 'https://api.moltin.com/pcm/catalogs/'
-    
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-def get_catalog(catalog_id):
-    access_token = get_access_token()
-    url = f'https://api.moltin.com/pcm/catalogs/{catalog_id}'
-    
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-def publish_catalog(catalog_id):
-    access_token = get_access_token()
-    url = f'https://api.moltin.com/pcm/catalogs/{catalog_id}/releases'
-    
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
 def get_pricebooks():
     access_token = get_access_token()
     url = 'https://api.moltin.com/pcm/pricebooks/'
@@ -130,30 +94,6 @@ def get_inventory(prod_id):
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     return response.json()['data']
-
-
-def get_cart(cart_id):
-    access_token = get_access_token()
-    url = f'https://api.moltin.com/v2/carts/{cart_id}'
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-    }
-
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-def get_cart_items(cart_id):
-    access_token = get_access_token()
-    url = f'https://api.moltin.com/v2/carts/{cart_id}/items/'
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-    }
-
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
 
 
 def get_cart_summary(cart_id):
