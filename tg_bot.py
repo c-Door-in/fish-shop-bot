@@ -260,38 +260,36 @@ def main():
     env = Env()
     env.read_env()
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            States.HANDLE_MENU: [
-                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
-                CallbackQueryHandler(handle_menu),
-            ],
-            States.HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(main_menu, pattern='^Назад$'),
-                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
-                CallbackQueryHandler(add_to_cart, pattern='^\d+$'),
-            ],
-            States.HANDLE_CART: [
-                CallbackQueryHandler(waiting_email, pattern='^Оплатить$'),
-                CallbackQueryHandler(main_menu, pattern='^В меню$'),
-                CallbackQueryHandler(remove_from_cart),
-            ],
-            States.WAITING_EMAIL: [
-                CallbackQueryHandler(main_menu, pattern='^В меню$'),
-                MessageHandler(Filters.regex(r'^\w+@[a-z]+\.[a-z]+$'), confirm_email),
-                MessageHandler(Filters.text, fail_email),
-            ],
-        },
-        fallbacks=[CommandHandler('cancel', cancel)],
-        allow_reentry=True,
-    )
-
     while True:
         try:
             updater = Updater(token=env.str('TG_BOT_TOKEN'))
             dp = updater.dispatcher
-            dp.add_handler(conv_handler)
+            dp.add_handler(ConversationHandler(
+                entry_points=[CommandHandler('start', start)],
+                states={
+                    States.HANDLE_MENU: [
+                        CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
+                        CallbackQueryHandler(handle_menu),
+                    ],
+                    States.HANDLE_DESCRIPTION: [
+                        CallbackQueryHandler(main_menu, pattern='^Назад$'),
+                        CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
+                        CallbackQueryHandler(add_to_cart, pattern=r'^\d+$'),
+                    ],
+                    States.HANDLE_CART: [
+                        CallbackQueryHandler(waiting_email, pattern='^Оплатить$'),
+                        CallbackQueryHandler(main_menu, pattern='^В меню$'),
+                        CallbackQueryHandler(remove_from_cart),
+                    ],
+                    States.WAITING_EMAIL: [
+                        CallbackQueryHandler(main_menu, pattern='^В меню$'),
+                        MessageHandler(Filters.regex(r'^\w+@[a-z]+\.[a-z]+$'), confirm_email),
+                        MessageHandler(Filters.text, fail_email),
+                    ],
+                },
+                fallbacks=[CommandHandler('cancel', cancel)],
+                allow_reentry=True,
+            ))
             dp.add_error_handler(error)
             updater.start_polling()
             updater.idle()
