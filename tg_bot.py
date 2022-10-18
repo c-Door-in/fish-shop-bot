@@ -28,7 +28,6 @@ def start(update, context):
         message_id = update.callback_query.message.message_id
     else:
         message_id = update.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
     
