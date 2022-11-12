@@ -57,12 +57,9 @@ def main_menu(update, context):
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     
     products = context.chat_data['products']
-    keyboard = []
-    for product_id, product in products.items():
-        keyboard.append(
-            [InlineKeyboardButton(product['name'],
-                                  callback_data=product_id)]
-        )
+
+    keyboard = [InlineKeyboardButton(product['name'], callback_data=product_id)
+                for product_id, product in products.items()]
     keyboard.append([InlineKeyboardButton('Корзина', callback_data='Корзина')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
