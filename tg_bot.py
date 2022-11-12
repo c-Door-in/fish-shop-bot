@@ -53,11 +53,7 @@ def start(update, context):
 
 def main_menu(update, context):
     chat_id = update.effective_chat.id
-    if update.callback_query:
-        message_id = update.callback_query.message.message_id
-    else:
-        message_id = update.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+    message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     
     products = context.chat_data['products']
@@ -184,19 +180,18 @@ def remove_from_cart(update, context):
 
 def waiting_email(update, context):
     chat_id = update.effective_chat.id
-    if update.callback_query:
-        message_id = update.callback_query.message.message_id
-    else:
-        message_id = update.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+
+    message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    
     keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.send_message(
+    last_message = context.bot.send_message(
         chat_id=chat_id,
         text='Введите почту',
         reply_markup=reply_markup,
     )
+    context.chat_data['last_message_id'] = last_message.message_id
 
     return States.WAITING_EMAIL
 
@@ -204,11 +199,12 @@ def waiting_email(update, context):
 def confirm_email(update, context):
     chat_id = update.effective_chat.id
     typed_email = update.message.text
-    if update.callback_query:
-        message_id = update.callback_query.message.message_id
-    else:
-        message_id = update.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+
+    last_message_id = context.chat_data.get('last_message_id')
+    if last_message_id:
+        context.bot.delete_message(chat_id=chat_id, message_id=last_message_id)
+
+    message_id = update.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
     thinking = context.bot.send_message(chat_id=chat_id, text='Думаю...')
@@ -229,17 +225,20 @@ def confirm_email(update, context):
 
 def fail_email(update, context):
     chat_id = update.effective_chat.id
-    if update.callback_query:
-        message_id = update.callback_query.message.message_id
-    else:
-        message_id = update.message.message_id
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id-1)
+
+    last_message_id = context.chat_data.get('last_message_id')
+    if last_message_id:
+        context.bot.delete_message(chat_id=chat_id, message_id=last_message_id)
+
+    message_id = update.message.message_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+
     text = f'Проверьте правильность написания.'
 
     keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(text=text, reply_markup=reply_markup)
+    last_message = update.message.reply_text(text=text, reply_markup=reply_markup)
+    context.chat_data['last_message_id'] = last_message.message_id
 
     return States.WAITING_EMAIL
 
