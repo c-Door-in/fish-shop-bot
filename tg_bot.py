@@ -41,9 +41,9 @@ def start(update, context):
         )
     keyboard.append([InlineKeyboardButton('Корзина', callback_data='Корзина')])
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
-    context.bot.send_message(
+    context.bot.edit_message_text(
         chat_id=chat_id,
+        message_id=thinking.message_id,
         text='Привет!',
         reply_markup=reply_markup,
     )
@@ -164,8 +164,12 @@ def handle_cart(update, context):
         [InlineKeyboardButton('В меню', callback_data='В меню')],
     )
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
-    context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+    context.bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=thinking.message_id,
+        text=text,
+        reply_markup=reply_markup
+    )
 
     return States.HANDLE_CART
 
@@ -217,8 +221,12 @@ def confirm_email(update, context):
 
     keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.delete_message(chat_id=chat_id, message_id=thinking.message_id)
-    update.message.reply_text(text=text, reply_markup=reply_markup)
+    context.bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=thinking.message_id,
+        text=text,
+        reply_markup=reply_markup,
+    )
 
     return States.HANDLE_CART
 
