@@ -1,6 +1,3 @@
-from pprint import pprint
-from textwrap import dedent
-
 import requests
 from environs import Env
 
@@ -279,11 +276,3 @@ def get_or_create_customer(name, email):
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
     return response.json()['data']['id']
-
-
-def main():
-    pass
-    
-
-if __name__ == "__main__":
-    main()
